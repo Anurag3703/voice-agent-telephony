@@ -157,6 +157,8 @@ async def twilio_honeypot_webhook(request: Request):
 
 @app.post("/chat/completions")
 @app.post("/vapi/chat/completions")
+@app.post("/vapi/chat/completions/chat/completions")
+@app.post("/vapi")
 async def custom_llm_chat_completions(request: Request):
     """
     OpenAI-compatible streaming Chat Completions endpoint for Vapi and custom voice bridges.

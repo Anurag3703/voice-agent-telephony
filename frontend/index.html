@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice Agent – P0: Real Providers</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>AI Voice Phone Call Assistant</h1>
+      <p class="subtitle">
+        Conversational Phone Agent with Real-Time Interruption & Personas.
+      </p>
+    </header>
+
+    <section class="controls">
+      <div class="card">
+        <h2>Call Persona & Mode</h2>
+        <label>
+          Choose Persona:
+          <select id="persona-select" style="width: 100%; padding: 8px; margin: 8px 0; background: var(--card-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px;">
+            <option value="friend" selected>Sam (Best Friend) - Warm, casual, conversational</option>
+            <option value="assistant">Alex (Executive Assistant) - Crisp, proactive</option>
+            <option value="support">Jordan (Tech Specialist) - Calm, diagnostic</option>
+            <option value="margaret">👵 Margaret (Cyber Honeypot) - Confused, slow, stalls scammers</option>
+            <option value="arthur">👴 Arthur (Cyber Honeypot) - Distracted professor, asks questions</option>
+          </select>
+        </label>
+        <div id="conn-status" class="status">Disconnected</div>
+        <button id="btn-connect" class="primary">Connect WebSocket</button>
+        <button id="btn-mic" disabled>Start Microphone</button>
+        <button id="btn-stop" disabled>Stop Mic</button>
+        <button id="btn-cancel" disabled>Cancel / Barge-in</button>
+        <p id="mic-hint" class="hint">If Start Microphone fails with Permission denied, type below — the preview iframe cannot use your mic.</p>
+        <div class="typed-row">
+          <input type="text" id="typed-input" placeholder="Type instead of speaking…" autocomplete="off" />
+          <button id="btn-send" class="primary" disabled>Send</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>VAD / Endpointing (R2)</h2>
+        <label>
+          Start threshold (RMS):
+          <input type="number" id="vad-start" value="0.018" step="0.001" min="0.001" max="0.2" />
+        </label>
+        <label>
+          End threshold (RMS):
+          <input type="number" id="vad-end" value="0.010" step="0.001" min="0.001" max="0.2" />
+        </label>
+        <label>
+          Min speech (ms):
+          <input type="number" id="vad-min-speech" value="100" min="50" max="800" step="10" />
+        </label>
+        <label>
+          Hangover / silence (ms):
+          <input type="number" id="vad-hangover" value="450" min="150" max="2000" step="50" />
+        </label>
+        <div id="level-meter" class="meter"><div id="level-bar"></div></div>
+        <div id="vad-state" class="status">Idle</div>
+      </div>
+    </section>
+
+    <section class="results">
+      <div class="card">
+        <h2>User / Caller</h2>
+        <div id="partial" class="transcript partial">…</div>
+        <div id="final" class="transcript final">Waiting…</div>
+        <div id="threat-badge" class="status" style="margin-top: 8px; font-size: 0.85rem; color: var(--muted);">Threat Scanner: Inactive</div>
+      </div>
+      <div class="card">
+        <h2>Agent / Honeypot</h2>
+        <div id="llm-response" class="transcript llm">—</div>
+        <div id="audio-state" class="status">No audio yet</div>
+      </div>
+    </section>
+
+    <!-- ===== CYBERSECURITY & THREAT INTELLIGENCE SOC DASHBOARD ===== -->
+    <section class="dashboard">
+      <div class="card full" style="border-left: 4px solid var(--accent, #6366f1);">
+        <div class="dash-header">
+          <h2>🛡️ Cybersecurity Threat Intelligence & Honeypot SOC Feed</h2>
+          <button id="btn-refresh-threats" style="padding: 4px 12px; font-size: 0.85rem;">Refresh Feed</button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 16px 0;">
+          <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 0.8rem; color: var(--muted);">Scammer Time Wasted</div>
+            <div id="stat-time-wasted" style="font-size: 1.4rem; font-weight: 700; color: #10b981;">0m 0s</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 0.8rem; color: var(--muted);">Scammer Labor Cost Destroyed</div>
+            <div id="stat-cost-inflicted" style="font-size: 1.4rem; font-weight: 700; color: #f59e0b;">$0.00</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 0.8rem; color: var(--muted);">Mule Bank Accounts Intercepted</div>
+            <div id="stat-mule-count" style="font-size: 1.4rem; font-weight: 700; color: #3b82f6;">0</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 0.8rem; color: var(--muted);">Crypto Wallets Captured</div>
+            <div id="stat-crypto-count" style="font-size: 1.4rem; font-weight: 700; color: #ec4899;">0</div>
+          </div>
+        </div>
+
+        <div class="history-wrap">
+          <h3>Live Forensic Threat Intelligence Feed</h3>
+          <div id="threat-feed-list" class="turn-history" style="max-height: 240px; overflow-y: auto;">
+            <div class="empty-hist">Loading live threat intelligence captures...</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== LATENCY DASHBOARD ===== -->
+    <section class="dashboard">
+      <div class="card full">
+        <div class="dash-header">
+          <h2>Latency Dashboard</h2>
+          <div id="session-stats" class="session-stats">No turns yet</div>
+        </div>
+
+        <div id="current-turn" class="turn-panel">
+          <div class="turn-title">Current turn</div>
+          <pre id="latency-log">Waiting for speech end…</pre>
+          <div id="ttfa-status" class="status big-status">—</div>
+          <div id="worst-stage" class="worst-stage"></div>
+        </div>
+
+        <div class="history-wrap">
+          <h3>Turn history</h3>
+          <div id="turn-history" class="turn-history">
+            <div class="empty-hist">Turns will appear here after each response.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="results">
+      <div class="card full">
+        <h2>Event Log</h2>
+        <pre id="event-log"></pre>
+      </div>
+    </section>
+
+    <section class="notes">
+      <h2>Dashboard reads</h2>
+      <ul>
+        <li><strong>TTFA</strong> = T6 − T0 (first playable audio after speech end)</li>
+        <li>Status ✓ if TTFA &lt; 300 ms, otherwise ✗ with largest contributor named</li>
+        <li>Session line shows running count, last TTFA, and simple average</li>
+        <li>Tool latency is listed separately and does not redefine TTFA</li>
+      </ul>
+    </section>
+  </div>
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>

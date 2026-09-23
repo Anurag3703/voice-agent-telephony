@@ -1,0 +1,16 @@
+{
+  "name": "voice-agent",
+  "version": "1.0.0",
+  "description": "**Hard requirement:** Time from user speech end → first audible agent audio **P50 < 300 ms**, **P95 < 600 ms**.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}

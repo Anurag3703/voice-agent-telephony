@@ -84,7 +84,14 @@ def create_llm() -> StreamingLLM:
 
 
 def create_tts(persona: str = "friend") -> StreamingTTS:
-    provider = _env("TTS_PROVIDER", "edge").lower()
+    provider = _env("TTS_PROVIDER", "qwen").lower()
+    if provider in ("qwen", "qwen-tts", "qwen3", "qwen3-tts"):
+        try:
+            from providers.qwen_tts_provider import QwenStreamingTTS
+            model_id = _env("QWEN_TTS_MODEL", "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice")
+            return QwenStreamingTTS(model_id=model_id, speaker="vivian")
+        except Exception as e:
+            print(f"[providers] Qwen TTS error: {e}")
     if provider == "openai":
         key = _env("OPENAI_API_KEY")
         if not key:

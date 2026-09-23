@@ -1,3 +1,13 @@
+---
+title: Voice Agent Core
+emoji: 🎙️
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Low-Latency Voice Agent
 
 **Hard requirement:** P50 TTFA (informational) < 300 ms, P95 < 600 ms.  

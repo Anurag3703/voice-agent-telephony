@@ -28,12 +28,10 @@ COPY evals/ ./evals/
 
 ENV PYTHONPATH="/app/backend:/app:${PYTHONPATH}"
 ENV PYTHONUNBUFFERED=1
+ENV PORT=7860
 
+EXPOSE 7860
 EXPOSE 8080
 
-# Health check endpoint
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')" || exit 1
-
-# Launch FastAPI ASGI server with uvicorn
-CMD ["python3", "-m", "uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8080", "--app-dir", "backend"]
+# Launch FastAPI ASGI server with uvicorn (supports HuggingFace Spaces port 7860 and Render port 8080)
+CMD ["sh", "-c", "python3 -m uvicorn server:app --host 0.0.0.0 --port ${PORT:-7860} --app-dir backend"]

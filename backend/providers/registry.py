@@ -42,7 +42,7 @@ def create_stt() -> StreamingSTT:
 
 
 def create_llm() -> StreamingLLM:
-    provider = _env("LLM_PROVIDER", "llama").lower()
+    provider = _env("LLM_PROVIDER", "huggingface").lower()
     if provider == "openai":
         key = _env("OPENAI_API_KEY")
         if not key:
@@ -71,7 +71,7 @@ def create_llm() -> StreamingLLM:
             from providers.huggingface_llm import HuggingFaceStreamingLLM
             return HuggingFaceStreamingLLM(
                 api_key=key,
-                model=_env("HF_MODEL", "meta-llama/Llama-3.2-3B-Instruct"),
+                model=_env("HF_MODEL", "meta-llama/Llama-3.3-70B-Instruct"),
             )
     if provider in ("llama", "llama3", "llama3.2", "ollama", "local", "auto"):
         try:

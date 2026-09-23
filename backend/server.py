@@ -15,9 +15,10 @@ from typing import Optional, AsyncIterator
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, Response, JSONResponse
+from fastapi.responses import FileResponse, Response, JSONResponse, StreamingResponse
 import os
 import base64
+import uuid
 
 from providers.registry import create_stt, create_llm, create_tts
 from mock_stt import MockStreamingSTT
@@ -152,6 +153,128 @@ async def twilio_honeypot_webhook(request: Request):
     </Connect>
 </Response>"""
     return Response(content=twiml, media_type="application/xml")
+
+
+@app.post("/chat/completions")
+@app.post("/vapi/chat/completions")
+async def custom_llm_chat_completions(request: Request):
+    """
+    OpenAI-compatible streaming Chat Completions endpoint for Vapi and custom voice bridges.
+    Routes every phone turn through our natural phone conversation persona and LLM engine.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    messages_raw = body.get("messages", [])
+    stream = body.get("stream", True)
+    
+    # Extract messages into ChatMessage format
+    chat_msgs = []
+    has_system = False
+    for m in messages_raw:
+        role = m.get("role", "user")
+        content = m.get("content", "")
+        if role == "system":
+            has_system = True
+        chat_msgs.append(ChatMessage(role=role, content=content))
+
+    if not has_system:
+        # Prepend our high-fidelity human phone call persona
+        system_content = (
+            "You are having a casual phone conversation with a friend. "
+            "Rules:\n"
+            "1. Respond in EXACTLY ONE short, natural, human spoken sentence (under 10-12 words).\n"
+            "2. Sound like a real person on a call (use casual language, natural fillers like 'Oh', 'Yeah', 'Gotcha', 'Haha').\n"
+            "3. NEVER act like an AI, customer support bot, or say 'How can I assist/help you today?'.\n"
+            "4. If insulted or teased, brush it off casually or banter with light humor like a real friend.\n"
+            "5. No lists, emojis, quotes, or markdown. Just one crisp spoken line."
+        )
+        chat_msgs.insert(0, ChatMessage(role="system", content=system_content))
+
+    llm = create_llm()
+    chunk_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
+    created_time = int(time.time())
+
+    async def sse_stream():
+        try:
+            async for event in llm.stream(chat_msgs):
+                if event.type == LLMEventType.TOKEN and event.text:
+                    chunk = {
+                        "id": chunk_id,
+                        "object": "chat.completion.chunk",
+                        "created": created_time,
+                        "model": "voice-agent-custom-llm",
+                        "choices": [{
+                            "index": 0,
+                            "delta": {"content": event.text},
+                            "finish_reason": None
+                        }]
+                    }
+                    yield f"data: {json.dumps(chunk)}\n\n"
+                elif event.type == LLMEventType.ERROR:
+                    err_chunk = {
+                        "id": chunk_id,
+                        "object": "chat.completion.chunk",
+                        "created": created_time,
+                        "model": "voice-agent-custom-llm",
+                        "choices": [{
+                            "index": 0,
+                            "delta": {"content": "Hey, sorry, couldn't hear that properly."},
+                            "finish_reason": None
+                        }]
+                    }
+                    yield f"data: {json.dumps(err_chunk)}\n\n"
+        except Exception as e:
+            err_chunk = {
+                "id": chunk_id,
+                "object": "chat.completion.chunk",
+                "created": created_time,
+                "model": "voice-agent-custom-llm",
+                "choices": [{
+                    "index": 0,
+                    "delta": {"content": "Hey, what did you say?"},
+                    "finish_reason": None
+                }]
+            }
+            yield f"data: {json.dumps(err_chunk)}\n\n"
+
+        # Final termination packet
+        final_chunk = {
+            "id": chunk_id,
+            "object": "chat.completion.chunk",
+            "created": created_time,
+            "model": "voice-agent-custom-llm",
+            "choices": [{
+                "index": 0,
+                "delta": {},
+                "finish_reason": "stop"
+            }]
+        }
+        yield f"data: {json.dumps(final_chunk)}\n\n"
+        yield "data: [DONE]\n\n"
+
+    if stream:
+        return StreamingResponse(sse_stream(), media_type="text/event-stream")
+    else:
+        # Non-streaming fallback
+        full_text = []
+        async for event in llm.stream(chat_msgs):
+            if event.type == LLMEventType.TOKEN and event.text:
+                full_text.append(event.text)
+        content_str = "".join(full_text)
+        return JSONResponse({
+            "id": chunk_id,
+            "object": "chat.completion",
+            "created": created_time,
+            "model": "voice-agent-custom-llm",
+            "choices": [{
+                "index": 0,
+                "message": {"role": "assistant", "content": content_str},
+                "finish_reason": "stop"
+            }]
+        })
 
 
 SYSTEM_PROMPT = (

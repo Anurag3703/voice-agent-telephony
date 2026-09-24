@@ -124,34 +124,3 @@ def create_tts(persona: str = "friend") -> StreamingTTS:
 
     from mock_tts import MockStreamingTTS
     return MockStreamingTTS(first_audio_ms=75, chunk_duration_ms=40)
-        key = _env("OPENAI_API_KEY")
-        if not key:
-            print("[providers] TTS_PROVIDER=openai but OPENAI_API_KEY missing → edge/mock")
-        else:
-            from providers.openai_tts import OpenAIStreamingTTS
-            return OpenAIStreamingTTS(
-                api_key=key,
-                model=_env("OPENAI_TTS_MODEL", "gpt-4o-mini-tts"),
-                voice=_env("OPENAI_TTS_VOICE", "alloy"),
-            )
-    if provider == "elevenlabs":
-        key = _env("ELEVENLABS_API_KEY")
-        if not key:
-            print("[providers] TTS_PROVIDER=elevenlabs but ELEVENLABS_API_KEY missing → edge/mock")
-        else:
-            from providers.elevenlabs_tts import ElevenLabsStreamingTTS
-            return ElevenLabsStreamingTTS(
-                api_key=key,
-                voice_id=_env("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM"),
-                model_id=_env("ELEVENLABS_MODEL_ID", "eleven_flash_v2_5"),
-            )
-    if provider in ("edge", "edge-tts", "auto", "mock"):
-        try:
-            from providers.edge_tts_provider import EdgeStreamingTTS, PERSONA_VOICE_MAP
-            voice = PERSONA_VOICE_MAP.get(persona, "en-US-GuyNeural")
-            return EdgeStreamingTTS(voice=voice)
-        except Exception:
-            pass
-
-    from mock_tts import MockStreamingTTS
-    return MockStreamingTTS(first_audio_ms=75, chunk_duration_ms=40)

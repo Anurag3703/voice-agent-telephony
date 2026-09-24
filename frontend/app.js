@@ -771,6 +771,43 @@ if (el.typedInput) {
   });
 }
 
+// Quick HTTP Pipeline Test (Direct Hugging Face LLM + Neural Voice Playback)
+const btnQuickTest = document.getElementById("btn-quick-test");
+if (btnQuickTest) {
+  btnQuickTest.addEventListener("click", async () => {
+    const inputVal = (el.typedInput?.value || "").trim() || "Hey, what are you doing today?";
+    btnQuickTest.disabled = true;
+    btnQuickTest.textContent = "⏳ Generating...";
+    logEvent(`Direct Test: Sending "${inputVal}" to Hugging Face Llama-3.3`);
+    
+    try {
+      const resp = await fetch("/api/talk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: inputVal })
+      });
+      const data = await resp.json();
+      logEvent(`Direct Test Reply (${data.llm_provider}): "${data.reply_text}"`);
+      el.llmResponse.textContent = data.reply_text;
+      
+      if (data.audio_b64) {
+        logEvent(`Direct Test Audio: Playing ${data.audio_bytes} bytes`);
+        playAudioChunk({
+          audio_b64: data.audio_b64,
+          format: "pcm16",
+          sample_rate: data.sample_rate || 24000,
+          is_first: true
+        });
+      }
+    } catch (err) {
+      logEvent(`Direct Test Error: ${err.message}`);
+    } finally {
+      btnQuickTest.disabled = false;
+      btnQuickTest.textContent = "⚡ Test Hugging Face Voice";
+    }
+  });
+}
+
 if (window.self !== window.top && el.micHint) {
   el.micHint.textContent =
     "This preview may block the microphone. If Start Mic fails, type below — you still hear the reply.";

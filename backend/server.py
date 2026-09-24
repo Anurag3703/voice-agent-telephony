@@ -77,10 +77,60 @@ async def health():
     return {
         "status": "healthy",
         "timestamp": time.time(),
-        "stt_provider": os.environ.get("STT_PROVIDER", "mock"),
-        "llm_provider": os.environ.get("LLM_PROVIDER", "mock"),
-        "tts_provider": os.environ.get("TTS_PROVIDER", "mock"),
+        "stt_provider": os.environ.get("STT_PROVIDER", "whisper"),
+        "llm_provider": os.environ.get("LLM_PROVIDER", "huggingface"),
+        "tts_provider": os.environ.get("TTS_PROVIDER", "edge"),
     }
+
+
+@app.api_route("/api/talk", methods=["GET", "POST"])
+async def api_talk(request: Request, text: Optional[str] = None):
+    """
+    Direct test endpoint: Pass ?text=hello or JSON {"text":"hello"}
+    Executes Hugging Face LLM -> Neural Voice TTS -> returns text and audio payload.
+    """
+    if request.method == "POST":
+        try:
+            body = await request.json()
+            user_text = body.get("text") or body.get("message") or text or "Hello"
+        except Exception:
+            user_text = text or "Hello"
+    else:
+        user_text = text or "Hello"
+
+    llm = create_llm()
+    tts = create_tts("friend")
+
+    await llm.connect()
+    await tts.connect()
+
+    msgs = [ChatMessage(role="user", content=user_text)]
+    llm_tokens = []
+
+    async def _token_gen():
+        async for ev in llm.stream(msgs):
+            if ev.type == LLMEventType.TOKEN and ev.text:
+                llm_tokens.append(ev.text)
+                yield ev.text
+
+    audio_chunks = []
+    async for tts_ev in tts.stream(_token_gen()):
+        if tts_ev.type == TTSEventType.AUDIO and tts_ev.audio:
+            audio_chunks.append(tts_ev.audio)
+
+    full_audio = b"".join(audio_chunks)
+    reply_text = "".join(llm_tokens).strip()
+
+    return JSONResponse({
+        "status": "ok",
+        "user_input": user_text,
+        "reply_text": reply_text,
+        "llm_provider": type(llm).__name__,
+        "tts_provider": type(tts).__name__,
+        "audio_bytes": len(full_audio),
+        "audio_b64": base64.b64encode(full_audio).decode("ascii") if full_audio else "",
+        "sample_rate": getattr(tts, "sample_rate", 24000),
+    })
 
 
 @app.get("/api/threats/stats")

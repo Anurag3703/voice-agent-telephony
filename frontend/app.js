@@ -60,9 +60,9 @@ let clientState = "idle";
 const history = [];
 let vad = createVadFromUI();
 const barge = new EchoAwareBargeIn({
-  margin: 2.0,
-  absoluteFloor: 0.018,
-  confirmMs: 45,
+  margin: 3.5,
+  absoluteFloor: 0.045,
+  confirmMs: 120,
   baselineAlpha: 0.08,
 });
 
@@ -295,7 +295,6 @@ async function playAudioChunk(data) {
 }
 
 async function playPcm16(int16, sampleRate, isFirst) {
-  if (!isAgentSpeaking && !isFirst) return;
   const ctx = await ensurePlayCtx();
   const float32 = new Float32Array(int16.length);
   for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
